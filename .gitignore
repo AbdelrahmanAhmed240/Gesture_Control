@@ -1,0 +1,15 @@
+# --- GLOBAL IGNORES ---
+.DS_Store
+.env
+
+# --- PYTHON (Backend) ---
+venv/
+env/
+__pycache__/
+*.pyc
+
+# --- NODE (Frontend) ---
+node_modules/
+dist/
+build/
+.vite/

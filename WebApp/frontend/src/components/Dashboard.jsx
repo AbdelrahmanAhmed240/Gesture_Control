@@ -5,7 +5,13 @@ import Controls from "./Controls";
 import { fetchUserProfile } from "../utils/user";
 import { play, pause, next, previous } from "../utils/player";
 
-const Dashboard = ({ isSystemActive, onToggleSystem }) => {
+const Dashboard = ({
+  token,
+  engineState,
+  onModuleToggle,
+  isSystemActive,
+  onToggleSystem,
+}) => {
   const [user, setUser] = useState(null);
   const [playerState, setPlayerState] = useState(null);
 

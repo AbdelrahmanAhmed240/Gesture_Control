@@ -1,88 +1,66 @@
-import speech_recognition as sr
-import requests
 import time
-import threading
+import speech_recognition as sr
+from controller import SystemController
 
-# --- CONFIG ---
-SERVER_URL = "http://127.0.0.1:5000"
-SPOTIFY_API = "https://api.spotify.com/v1/me/player"
+MODULE_NAME = "voice"
 
-class VoiceController:
-    def __init__(self):
-        self.token = None
-        self.recognizer = sr.Recognizer()
+def main():
+    # Initialize Controller (The Communication Hub)
+    controller = SystemController()
+    
+    # Initialize Microphone (The Sensor)
+    recognizer = sr.Recognizer()
+    mic = sr.Microphone()
 
-    def get_token(self):
-        """Polls Flask until user logs in."""
-        print("🎤 Voice Engine: Waiting for Token...")
-        while not self.token:
-            try:
-                res = requests.get(f"{SERVER_URL}/internal/token")
-                if res.status_code == 200:
-                    self.token = res.json().get('token')
-                    print("✅ Voice Engine: Connected & Listening!")
-                else:
-                    time.sleep(2)
-            except:
-                time.sleep(2)
+    print("🎤 Calibrating Microphone... Please be silent.")
+    with mic as source:
+        recognizer.adjust_for_ambient_noise(source, duration=2)
+    print("✅ Calibration Complete.")
 
-    def send_cmd(self, method, endpoint):
-        """Sends command to Spotify."""
-        if not self.token: return
-        headers = {"Authorization": f"Bearer {self.token}"}
-        url = f"{SPOTIFY_API}/{endpoint}"
-        try:
-            if method == 'PUT': requests.put(url, headers=headers)
-            elif method == 'POST': requests.post(url, headers=headers)
-            print(f"📡 Voice Command Sent: {endpoint.upper()}")
-        except Exception as e:
-            print(f"❌ Error: {e}")
+    # TELL BACKEND: "I AM READY"
+    controller.set_engine_status(MODULE_NAME, True)
 
-    def listen(self):
-        self.get_token()
-        
-        # Check Mic
-        try:
-            mic = sr.Microphone()
-        except:
-            print("❌ No Microphone Found.")
-            return
-
-        with mic as source:
-            print("Adjusting for ambient noise...")
-            self.recognizer.adjust_for_ambient_noise(source, duration=1)
-
-        print("💬 Say: 'Resume', 'Pause', 'Next', 'Previous'...")
-
+    try:
         while True:
+            voice_active, _ = controller.sync_system_status()
+
+            if not voice_active:
+                time.sleep(1)
+                continue
+
+            print("🟢 Listening...")
             try:
                 with mic as source:
-                    # Listen with a timeout so it doesn't hang forever
-                    audio = self.recognizer.listen(source, timeout=5, phrase_time_limit=3)
+                    audio = recognizer.listen(source, timeout=5, phrase_time_limit=3)
                 
-                command = self.recognizer.recognize_google(audio).lower()
-                print(f"🗣 Heard: '{command}'")
+                command_text = recognizer.recognize_google(audio).lower()
+                print(f"🗣️ Heard: '{command_text}'")
 
-                # --- RULES 5, 6, 7, 8 ---
-                if any(x in command for x in ["resume", "play", "continue", "start"]):
-                    self.send_cmd('PUT', 'play')
-                
-                elif any(x in command for x in ["stop", "pause", "hush"]):
-                    self.send_cmd('PUT', 'pause')
-                
-                elif any(x in command for x in ["next", "skip"]):
-                    self.send_cmd('POST', 'next')
-                
-                elif any(x in command for x in ["previous", "back"]):
-                    self.send_cmd('POST', 'previous')
+                if "play" in command_text or "start" in command_text:
+                    controller.play()
+                elif "pause" in command_text or "stop" in command_text:
+                    controller.pause()
+                elif "next" in command_text or "skip" in command_text:
+                    controller.next()
+                elif "previous" in command_text or "back" in command_text:
+                    controller.previous()
 
             except sr.WaitTimeoutError:
-                pass # Just keep listening
+                pass 
             except sr.UnknownValueError:
-                pass # Didn't catch that
+                print("🤔 Unclear")
+            except sr.RequestError:
+                print("❌ Internet Error")
             except Exception as e:
                 print(f"⚠️ Error: {e}")
 
+    except KeyboardInterrupt:
+        print("\n🛑 Manual Stop")
+
+    finally:
+        # TELL BACKEND: "I AM DEAD"
+        controller.set_engine_status(MODULE_NAME, False)
+        print("👋 Engine Shutdown.")
+
 if __name__ == "__main__":
-    app = VoiceController()
-    app.listen()
+    main()

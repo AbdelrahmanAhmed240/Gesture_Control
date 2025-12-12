@@ -10,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from CONFIG import Config
 from api.state import AppState
 from api.utils.u_server import set_error_state, clear_error_state
+from api.utils.u_state import load_state, set_engine_status, update_key
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -35,37 +36,46 @@ def get_error_state():
         "dev_info": AppState.ERROR_STATE['dev_info']
     })
 
+@api_bp.route('/engine/status', methods=['POST'])
+def engine_status():
+    data = request.json
+    if not data or 'module' not in data or 'ready' not in data:
+        return jsonify({"error": "Bad Request"}), 400
+
+    set_engine_status(data['module'], data['ready'])
+    
+    return jsonify({"status": "acknowledged"}), 200
+
 @api_bp.route('/status', methods=['GET'])
-def status():
-    return jsonify({
-        "voice_active": AppState.SYSTEM_ACTIVE[0],
-        "hand_tracking_active": AppState.SYSTEM_ACTIVE[1],
-        "logged_in": AppState.CURRENT_TOKEN is not None
-    })
+def get_status():
+    return jsonify(load_state())
 
 @api_bp.route('/toggle', methods=['POST'])
 def toggle_state():
     data = request.json
+    
+    # Basic Validation
     if not data or 'module' not in data or 'active' not in data:
-        set_error_state(
-            400,
-            "System Error: Failed to parse toggle request",
-            "Missing 'module' or 'active' in request data: " + str(data) + "\nFrom /api/toggle\n\nExpected JSON format: { 'module': 'voice'|'hand', 'active': true|false }"
-        )
-        return jsonify({"Error": Config.ERRORS[400]}), 400
-    
-    clear_error_state()
-    
-    if data['module'] == 'voice':
-        AppState.SYSTEM_ACTIVE[0] = data['active']
-    elif data['module'] == 'hand':
-        AppState.SYSTEM_ACTIVE[1] = data['active']
+        return jsonify({"error": "Bad Request: Missing module or active state"}), 400
 
-    return jsonify({
-        "status": "success",
-        "voice_active": AppState.SYSTEM_ACTIVE[0],
-        "hand_active": AppState.SYSTEM_ACTIVE[1]
-    })
+    key_map = {
+        "voice": "voice_active",
+        "hand": "hand_active"
+    }
+    
+    target_key = key_map.get(data['module'])
+    
+    if target_key:
+        update_key(target_key, data['active'])
+
+        new_state = load_state()
+        return jsonify({
+            "status": "success", 
+            "voice_active": new_state['voice_active'],
+            "hand_active": new_state['hand_active']
+        }), 200
+    
+    return jsonify({"error": "Invalid module name"}), 400
 
 app.register_blueprint(api_bp)
 

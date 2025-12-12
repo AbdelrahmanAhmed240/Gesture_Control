@@ -17,7 +17,4 @@ def profile():
     # 3. Handle Response
     if res.status_code == 200:
         return jsonify(res.json()), 200
-    
-    # Optional: We don't necessarily trigger a RED SCREEN system error just for 
-    # failing to load a profile picture, so we just return the error JSON.
     return jsonify({"error": "Failed to fetch profile", "details": res.json()}), res.status_code

@@ -12,12 +12,14 @@ function App() {
 
   // 1. Token Check
   useEffect(() => {
-    const accessToken = getTokenFromUrl();
+    const accessToken =
+      localStorage.getItem("access_token") || getTokenFromUrl();
     if (accessToken) setToken(accessToken);
   }, []);
 
   // 2. Smart Heartbeat
   useEffect(() => {
+    if (!token) return;
     const poll = async () => {
       const errorData = await checkSystemHealth();
       setGlobalError(errorData);
@@ -27,7 +29,7 @@ function App() {
 
     let interval = null;
     if (isSystemActive) {
-      interval = setInterval(poll, 4000);
+      interval = setInterval(poll, 5000);
     }
 
     return () => {
@@ -35,7 +37,19 @@ function App() {
     };
   }, [isSystemActive]);
 
-  const handleDismiss = () => setGlobalError(null);
+  const handleDismiss = () => {
+    localStorage.removeItem("access_token");
+    setToken(null);
+    setGlobalError(null);
+    setIsSystemActive(false);
+    window.location.href = "/";
+
+    setToken(null);
+    setGlobalError(null);
+    setIsSystemActive(false);
+
+    window.location.href = "/";
+  };
 
   return (
     <>

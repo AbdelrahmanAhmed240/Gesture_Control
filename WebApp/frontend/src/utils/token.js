@@ -3,7 +3,7 @@ export const getTokenFromUrl = () => {
   const accessToken = params.get("access_token");
 
   if (accessToken) {
-    localStorage.setItem("spotify_token", accessToken);
+    localStorage.setItem("access_token", accessToken);
     window.history.pushState({}, null, "/");
     return accessToken;
   }

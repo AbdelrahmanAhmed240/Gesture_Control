@@ -17,6 +17,8 @@ def login():
     scopes = Config.SCOPES
     scope = ' '.join(scopes)
     auth_url = get_auth_url(scope)
+    print(f"Client id: {Config.SPOTIFY_CLIENT_ID}")
+    print(f"CLient secret: {Config.SPOTIFY_CLIENT_SECRET}")
     return redirect(auth_url)
 
 @auth_bp.route('/callback')
